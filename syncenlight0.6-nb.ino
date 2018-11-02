@@ -26,6 +26,8 @@
 // Defaults
 char mqtt_server[40] = "netzbasteln.de";
 char publish_topic[40] = "syncenlight";
+char mqtt_user[32] = "";
+char mqtt_pass[32] = "";
 
 unsigned int brightness = 255; // 0-255
 
@@ -110,6 +112,8 @@ void setup() {
           Serial.println("\nParsed json.");
           strcpy(mqtt_server, json["mqtt_server"]);
           strcpy(publish_topic, json["publish_topic"]);
+          strcpy(mqtt_user, json["mqtt_user"]);
+          strcpy(mqtt_pass, json["mqtt_pass"]);
         } else {
           Serial.println("Failed to load json config.");
         }
@@ -124,11 +128,15 @@ void setup() {
   // The extra parameters to be configured.
   WiFiManagerParameter custom_mqtt_server("Server", "mqtt server", mqtt_server, 40);
   WiFiManagerParameter custom_publish_topic("Channel", "channel", publish_topic, 40);
+  WiFiManagerParameter custom_mqtt_user("MQTT User", "mqtt username", mqtt_user, 40);
+  WiFiManagerParameter custom_mqtt_pass("MQTT Password", "mqtt password", mqtt_pass, 40);
   
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   // Add all parameters.
   wifiManager.addParameter(&custom_mqtt_server);
   wifiManager.addParameter(&custom_publish_topic);
+  wifiManager.addParameter(&custom_mqtt_user);
+  wifiManager.addParameter(&custom_mqtt_pass);
 
 
   // When button is pressed on start, go into config portal.
@@ -148,6 +156,8 @@ void setup() {
   // Read updated parameters.
   strcpy(mqtt_server, custom_mqtt_server.getValue());
   strcpy(publish_topic, custom_publish_topic.getValue());
+  strcpy(mqtt_user, custom_mqtt_user.getValue());
+  strcpy(mqtt_pass, custom_mqtt_pass.getValue());
 
   // Save the custom parameters to FS.
   if (shouldSaveConfig) {
@@ -156,6 +166,8 @@ void setup() {
     JsonObject& json = jsonBuffer.createObject();
     json["mqtt_server"] = mqtt_server;
     json["publish_topic"] = publish_topic;
+    json["mqtt_user"] = mqtt_user;
+    json["mqtt_pass"] = mqtt_pass;
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
       Serial.println("Failed to open config file for writing.");
@@ -230,7 +242,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
 void mqtt_reconnect() {
   while (!mqttClient.connected()) {
     Serial.println("Connecting MQTT...");
-    if (mqttClient.connect(chip_id_char_arr)) {
+    if (mqttClient.connect(chip_id_char_arr,mqtt_user,mqtt_pass)) {
       blinkTicker.detach();
       Serial.println("MQTT connected.");
       mqttClient.subscribe(publish_topic, 1); // QoS level 1
